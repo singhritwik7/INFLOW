@@ -1,0 +1,199 @@
+# openenv.yaml
+name: inboxflow
+version: "1.0.0"
+description: >
+  InboxFlow is a real-world customer support inbox triage environment.
+  An AI agent acts as Head of Customer Success for a B2B SaaS company,
+  managing incoming emails with thread awareness, SLA pressure,
+  customer history, and cascading consequences.
+
+author: "InboxFlow Team"
+tags:
+  - openenv
+  - email-triage
+  - customer-support
+  - nlp
+  - real-world
+  - sla
+  - thread-aware
+
+tasks:
+  - name: inbox-sort
+    display_name: "Inbox Sort"
+    description: >
+      Sort a 5-email inbox by categorizing each email and
+      assigning a priority level. No routing or replies needed.
+    difficulty: easy
+    max_steps: 8
+    score_range: [0.0, 1.0]
+    success_threshold: 0.70
+    score_weights:
+      category: 0.50
+      priority: 0.50
+
+  - name: inbox-route
+    display_name: "Inbox Route"
+    description: >
+      Handle an 8-email inbox with threaded conversations.
+      Categorize, prioritize, route to correct team, and write replies.
+    difficulty: medium
+    max_steps: 12
+    score_range: [0.0, 1.0]
+    success_threshold: 0.65
+    score_weights:
+      category: 0.25
+      priority: 0.25
+      routing: 0.30
+      reply: 0.20
+
+  - name: inbox-crisis
+    display_name: "Inbox Crisis"
+    description: >
+      Manage a crisis inbox with SLA breaches, angry enterprise customers,
+      legal threats, and cascading threads. Full triage required.
+    difficulty: hard
+    max_steps: 18
+    score_range: [0.0, 1.0]
+    success_threshold: 0.60
+    score_weights:
+      category: 0.15
+      priority: 0.15
+      routing: 0.20
+      reply: 0.25
+      escalation: 0.15
+      sla: 0.10
+
+observation_space:
+  type: object
+  description: "Full inbox context including email, thread, customer, and task info"
+  fields:
+    current_email:
+      type: object
+      fields:
+        id: string
+        subject: string
+        body: string
+        sender_email: string
+        customer_id: string
+        timestamp: string
+        thread_id: string
+        is_thread_starter: boolean
+        sentiment: string
+        sla_hours: integer
+    thread_history:
+      type: array
+      description: "Previous emails in the same thread"
+    thread_info:
+      type: object
+      description: "Thread metadata including SLA and sentiment trend"
+    customer_profile:
+      type: object
+      fields:
+        id: string
+        name: string
+        plan: string
+        mrr: integer
+        sentiment_history: array
+        sla_tier: string
+        tags: array
+    inbox_summary:
+      type: object
+      fields:
+        total_emails: integer
+        processed: integer
+        remaining: integer
+        urgent_count: integer
+        sla_breach_risk_count: integer
+    task_name: string
+    step: integer
+    max_steps: integer
+    instruction: string
+    sla_deadline: string
+    sla_breach_risk: boolean
+    last_action_feedback: string
+    score_so_far: float
+    available_actions: array
+
+action_space:
+  type: object
+  description: "Actions agent can take on each email"
+  required:
+    - email_id
+    - category
+    - priority
+    - done
+  optional:
+    - route_to
+    - reply_draft
+    - reply_tone
+    - escalate
+    - escalation_reason
+    - snooze_hours
+    - merge_with_thread
+    - mark_sla_breach_risk
+  valid_categories:
+    - TECHNICAL
+    - BILLING
+    - INQUIRY
+    - COMPLAINT
+    - SPAM
+    - COMPLIMENT
+    - URGENT
+  valid_routes:
+    - engineering
+    - billing
+    - sales
+    - manager
+    - self
+    - close
+  valid_tones:
+    - empathetic
+    - formal
+    - apologetic
+    - informative
+    - friendly
+    - warm
+    - enthusiastic
+    - formal_apologetic
+
+reward:
+  type: float
+  range: [0.0, 1.0]
+  description: "Shaped reward provided every step — never sparse"
+  shaping:
+    - "Category accuracy"
+    - "Priority accuracy"
+    - "Routing correctness"
+    - "Reply quality (keyword coverage)"
+    - "Reply tone appropriateness"
+    - "Escalation correctness"
+    - "SLA breach awareness"
+    - "Episode completion bonus"
+
+api:
+  reset:
+    method: POST
+    path: /reset
+    body:
+      task_name: string
+  step:
+    method: POST
+    path: /step
+    body: action_space
+  state:
+    method: GET
+    path: /state
+  health:
+    method: GET
+    path: /health
+  tasks:
+    method: GET
+    path: /tasks
+
+runtime:
+  framework: FastAPI
+  python: "3.11"
+  port: 7860
+  max_inference_time_minutes: 20
+  memory_gb: 8
+  vcpus: 2
